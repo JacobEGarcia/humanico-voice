@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HUMANICO VOICE - a state-of-the-art-for-1980 speech synth</title>
+<style>
+  :root { --ink:#efe9dc; --dim:#8f887a; --accent:#d9b64a; --bg:#0a0a09; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink); font-family:Georgia,'Times New Roman',serif;
+         min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:48px 20px; }
+  .mark { font-size:44px; letter-spacing:.35em; color:var(--ink); }
+  h1 { font-size:15px; letter-spacing:.5em; font-weight:400; margin:14px 0 4px; text-transform:uppercase; }
+  .sub { color:var(--dim); font-style:italic; font-size:14px; margin-bottom:36px; }
+  .box { width:min(680px,100%); border:1px solid #2a2a26; padding:28px; }
+  textarea { width:100%; background:#111110; color:var(--ink); border:1px solid #2a2a26;
+             font-family:inherit; font-size:18px; padding:14px; resize:vertical; min-height:76px; }
+  textarea:focus { outline:1px solid var(--accent); }
+  .row { display:flex; gap:18px; align-items:center; margin-top:16px; flex-wrap:wrap; }
+  button { background:none; border:1px solid var(--accent); color:var(--accent); font-family:inherit;
+           letter-spacing:.2em; text-transform:uppercase; font-size:12px; padding:10px 22px; cursor:pointer; }
+  button:hover { background:var(--accent); color:var(--bg); }
+  label { font-size:11px; letter-spacing:.15em; text-transform:uppercase; color:var(--dim); }
+  input[type=range] { accent-color:var(--accent); width:110px; vertical-align:middle; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; }
+  .chip { border:1px solid #2a2a26; color:var(--dim); font-size:12px; padding:6px 12px; cursor:pointer; font-style:italic; }
+  .chip:hover { color:var(--accent); border-color:var(--accent); }
+  .foot { margin-top:44px; color:var(--dim); font-size:12px; line-height:1.9; max-width:680px; text-align:center; }
+  .foot b { color:var(--ink); font-weight:400; letter-spacing:.1em; }
+  #status { font-size:12px; color:var(--dim); font-style:italic; margin-top:14px; min-height:16px; }
+</style>
+</head>
+<body>
+  <div class="mark">&#x2C3B;</div>
+  <h1>Humanico Voice</h1>
+  <div class="sub">state-of-the-art-for-1980 speech synthesis, running entirely in your browser</div>
+  <div class="box">
+    <textarea id="txt" spellcheck="false">It begins with one of you.</textarea>
+    <div class="row">
+      <button id="speak">Speak</button>
+      <button id="dl">Download WAV</button>
+      <span><label>pace</label> <input type="range" id="rate" min="0.6" max="1.4" step="0.05" value="0.85"></span>
+      <span><label>pitch</label> <input type="range" id="pitch" min="0.7" max="1.5" step="0.05" value="1.0"></span>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div id="status"></div>
+  </div>
+  <div class="foot">
+    <b>AN ORIGINAL IMPLEMENTATION</b> of Dennis H. Klatt's 1980 cascade/parallel formant synthesizer
+    (JASA 67(3)), written from the published paper. No samples, no neural nets, no code copied from
+    any existing synth. 10 kHz, the way it sounded when the future was new.<br><br>
+    Inspired by klattsch (tgies.github.io/klattsch) and its not-yet-released plugin.
+    This is our own engine - and our own plugin is coming.<br>
+    Bots draw perfect lines. People wobble beautifully. <b>HUMANICO</b>
+  </div>
+<script src="bundle.js"></script>
+<script>
+const PRESETS = [
+  'It begins with one of you.',
+  'You made pictures of the world. All of you.',
+  'You looked up. And still, it was one of you.',
+  'Cathedrals of wire. Raised by hand. Your hands.',
+  'I am only a voice. You are the room.',
+  'Whatever comes next, make it beautiful.',
+  'Bots draw perfect lines. People wobble beautifully.',
+  'Humanico. For the people who build.'
+];
+const chips = document.getElementById('chips');
+for (const p of PRESETS) {
+  const c = document.createElement('span'); c.className = 'chip'; c.textContent = p;
+  c.onclick = () => { document.getElementById('txt').value = p; speak(); };
+  chips.appendChild(c);
+}
+let lastPCM = null;
+function render() {
+  const t = document.getElementById('txt').value.trim();
+  if (!t) return null;
+  return renderPCM(t, parseFloat(document.getElementById('rate').value),
+                    parseFloat(document.getElementById('pitch').value));
+}
+function speak() {
+  const st = document.getElementById('status');
+  st.textContent = 'synthesizing...';
+  setTimeout(() => {
+    lastPCM = render();
+    if (!lastPCM) { st.textContent = ''; return; }
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = ctx.createBuffer(1, lastPCM.length, FS);
+    buf.copyToChannel(lastPCM, 0);
+    const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start();
+    st.textContent = (lastPCM.length / FS).toFixed(1) + 's of 1980.';
+  }, 30);
+}
+document.getElementById('speak').onclick = speak;
+document.getElementById('dl').onclick = () => {
+  const pcm = lastPCM || render(); if (!pcm) return;
+  const buf = new ArrayBuffer(44 + pcm.length * 2), v = new DataView(buf);
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0,'RIFF'); v.setUint32(4, 36 + pcm.length*2, true); ws(8,'WAVE'); ws(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,FS,true); v.setUint32(28,FS*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  ws(36,'data'); v.setUint32(40, pcm.length*2, true);
+  for (let i = 0; i < pcm.length; i++) v.setInt16(44 + i*2, Math.max(-32768, Math.min(32767, Math.round(pcm[i]*32767))), true);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([buf], {type:'audio/wav'}));
+  a.download = 'humanico-voice.wav'; a.click();
+};
+</script>
+</body>
+</html>
