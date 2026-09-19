@@ -39,8 +39,14 @@ harness that dlopens the plugin, plays six notes, and writes a WAV.
 
 - `klatt80.py` / `tts.py` / `phones.py` - the reference engine and CLI (Python)
 - `klatt80.js` / `tts.js` / `bundle.js` - the JS port used by the playground
-- `cmudict.dict` - CMU pronunciation dictionary (BSD 2-clause)
+- CMUdict is not committed (size). The Python CLI needs it next to `tts.py`:
+  `curl -LO https://raw.githubusercontent.com/cmusphinx/cmudict/master/cmudict.dict`
 - `plugin/` - the CLAP instrument (C99)
+
+## Prebuilt plugin
+
+`plugin/humanico-voice.clap` (Linux x86-64) is attached to the v1.0.0 release;
+see Releases. macOS/Windows: rebuild from `plugin/` sources.
 
 ## License
 
